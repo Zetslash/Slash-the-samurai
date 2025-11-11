@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fighting Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #1a1a1a;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        
+        .game-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .health-container {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 0 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .player-health-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-top: -40px; /* 체력바만 위로 올리기 (값 조정 가능) */
+        }
+        
+        .enemy-health-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: -40px; /* 체력바만 위로 올리기 (값 조정 가능) */
+        }
+        
+        .player-name {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .health-bar-container {
+            position: relative;
+            width: 100%;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 3px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+        }
+        
+        .health-bar-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #333 0%, #111 100%);
+        }
+        
+        .health-bar {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            transition: width 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+        
+        .player-health-bar {
+            right: 0;
+            background: linear-gradient(90deg, #ff4444 0%, #ff0000 50%, #cc0000 100%);
+            border-left: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .enemy-health-bar {
+            left: 0;
+            background: linear-gradient(90deg, #4444ff 0%, #0000ff 50%, #0000cc 100%);
+            border-right: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .health-bar-low {
+            background: linear-gradient(90deg, #ff8800 0%, #ff4400 50%, #cc0000 100%) !important;
+        }
+        
+        .timer-container {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .timer-label {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .timer {
+            width: 90px; /* 타이머 원 크기 조정 (기본값: 120px) */
+            height: 90px; /* 타이머 원 크기 조정 (기본값: 120px) */
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px; /* 폰트 크기 조정 (기본값: 48px) */
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 2px 5px rgba(255, 255, 255, 0.1);
+        }
+        
+        .timer-warning {
+            color: #ff4444;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            pointer-events: all;
+        }
+        
+        .game-over.show {
+            display: flex;
+        }
+        
+        .winner-text {
+            color: #fff;
+            font-size: 64px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 4px 4px 8px rgba(0, 0, 0, 0.8);
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .retry-button {
+            padding: 15px 50px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            display: none;
+        }
+        
+        .retry-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+            background: linear-gradient(135deg, #5CBF60 0%, #4CAF50 100%);
+        }
+        
+        .retry-button:active {
+            transform: translateY(0);
+        }
+        
+        .retry-button.show {
+            display: block;
+            animation: fadeIn 0.5s ease 0.3s backwards;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        
+        /* 메인 로비 화면 */
+        .lobby-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 90;
+            transition: opacity 0.5s ease;
+            overflow: hidden;
+        }
+        
+        /* GIF 배경 이미지 */
+        .lobby-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('img/lennart-butz-idea5anim4.gif');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 1;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        
+        .lobby-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 50px;
+            position: relative;
+            z-index: 1;
+            padding: 40px;
+        }
+        
+        /* 로비 시작 섹션 (로고 + 스타트 버튼) */
+        .lobby-start-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        /* 로비 모드 선택 섹션 */
+        .lobby-mode-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .lobby-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 4px 4px 8px rgba(0, 0, 0, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: fadeIn 0.5s ease;
+            font-family: 'Arial Black', Arial, sans-serif;
+            margin-bottom: 20px;
+        }
+        
+        .lobby-modes {
+            display: flex;
+            gap: 40px;
+            align-items: stretch;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .mode-card {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            padding: 30px 40px;
+            min-width: 280px;
+            max-width: 350px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s ease;
+            position: relative;
+            animation: cardFadeIn 0.8s ease backwards;
+        }
+        
+        .mode-card:nth-child(1) {
+            animation-delay: 0.2s;
+        }
+        
+        .mode-card:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes cardFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .mode-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8);
+            border-color: #ccc;
+        }
+        
+        .mode-icon {
+            font-size: 60px;
+            margin-bottom: 8px;
+        }
+        
+        .mode-name {
+            font-size: 26px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .mode-description {
+            font-size: 14px;
+            color: #ccc;
+            text-align: center;
+            line-height: 1.5;
+            margin: 8px 0;
+            flex-grow: 1;
+        }
+        
+        .lobby-button {
+            padding: 14px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            min-width: 180px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .lobby-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4), inset 0 1px 3px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+            border-color: #fff;
+        }
+        
+        .lobby-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 반응형 디자인 */
+        @media (max-width: 900px) {
+            .lobby-modes {
+                flex-direction: column;
+            }
+            
+            .mode-card {
+                min-width: 250px;
+                max-width: 320px;
+            }
+            
+            .lobby-title {
+                font-size: 42px;
+            }
+        }
+        
+        .logo-container {
+            margin-bottom: 40px;
+            animation: logoFadeIn 1s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            background: transparent;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo-image {
+            max-width: 500px;
+            width: 80%;
+            height: auto;
+            display: block;
+            background: transparent;
+            border: none;
+            outline: none;
+            animation: logoPulse 3s infinite;
+            object-fit: contain;
+        }
+        
+        @keyframes logoFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .game-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 2px 2px 6px rgba(0, 0, 0, 0.8);
+            margin-bottom: 50px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            animation: titleFadeIn 1s ease 0.3s backwards;
+        }
+        
+        @keyframes titleFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .start-button {
+            padding: 18px 50px;
+            font-size: 22px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            animation: buttonFadeIn 1s ease 0.6s backwards;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @keyframes buttonFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .start-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4), inset 0 1px 3px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+            border-color: #fff;
+        }
+        
+        .start-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 게임 화면 */
+        #gameScreen {
+            display: none;
+        }
+        
+        #gameScreen.show {
+            display: block;
+        }
+        
+        /* 카운트다운 */
+        #countdown {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            pointer-events: none;
+        }
+        
+        #countdown.show {
+            display: flex;
+        }
+        
+        .countdown-text {
+            font-size: 120px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8), 4px 4px 12px rgba(0, 0, 0, 0.9);
+            animation: countdownPulse 0.5s ease;
+        }
+        
+        @keyframes countdownPulse {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* 모바일 컨트롤 버튼 */
+        .mobile-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            display: none; /* 기본적으로 숨김 */
+            justify-content: space-between;
+            padding: 25px;
+            z-index: 50;
+            pointer-events: all;
+        }
+        
+        .mobile-controls-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .mobile-controls-right {
+            display: flex;
+            flex-direction: row;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .arrow-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 15px;
+            width: 240px;
+            height: 160px;
+        }
+        
+        .mobile-btn {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.2);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .mobile-btn:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.3);
+        }
+        
+        .mobile-btn-arrow {
+            width: 70px;
+            height: 70px;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mobile-btn-jump {
+            grid-column: 2;
+            grid-row: 1;
+        }
+        
+        #mobileLeft {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        
+        #mobileRight {
+            grid-column: 3;
+            grid-row: 2;
+        }
+        
+        .mobile-btn-action {
+            width: 100px;
+            height: 100px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* 공격 버튼을 더 크게 */
+        #mobileAttack {
+            width: 120px;
+            height: 120px;
+            font-size: 24px;
+        }
+        
+        /* 모바일에서만 표시 */
+        @media (max-width: 768px) {
+            .mobile-controls.show {
+                display: flex !important;
+            }
+            
+            /* 게임 화면이 표시될 때 모바일 컨트롤도 표시 */
+            #gameScreen.show #mobileControls {
+                display: flex !important;
+                visibility: visible !important;
+            }
+        }
+        
+        /* 데스크톱에서는 항상 숨김 */
+        @media (min-width: 769px) {
+            .mobile-controls {
+                display: none !important;
+            }
+        }
+        
+        /* 일시정지 버튼 */
+        .pause-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            pointer-events: all;
+        }
+        
+        .pause-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+        
+        /* 일시정지 메뉴 */
+        .pause-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            pointer-events: all;
+        }
+        
+        .pause-menu-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .pause-menu-button {
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .pause-menu-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4);
+            background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+        }
+        
+        .pause-menu-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 설정 팝업 */
+        .settings-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 400;
+            pointer-events: all;
+        }
+        
+        .settings-popup-content {
+            position: relative;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 3px solid #fff;
+            border-radius: 15px;
+            padding: 40px 60px;
+            min-width: 400px;
+            max-width: 500px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+        }
+        
+        .close-settings-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+        
+        .close-settings-button:hover {
+            background: rgba(255, 0, 0, 1);
+            transform: scale(1.1);
+        }
+        
+        .settings-title {
+            color: #fff;
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .settings-item {
+            margin-bottom: 30px;
+        }
+        
+        .settings-label {
+            display: block;
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .settings-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .settings-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: 2px solid #333;
+        }
+        
+        .settings-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: 2px solid #333;
+        }
+        
+        .settings-value {
+            display: block;
+            color: #fff;
+            font-size: 16px;
+            text-align: right;
+            margin-top: 5px;
+        }
+        
+        /* 설정 탭 */
+        .settings-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #555;
+        }
+        
+        .settings-tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #aaa;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .settings-tab:hover {
+            color: #fff;
+        }
+        
+        .settings-tab.active {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+        
+        .settings-tab-content {
+            display: none;
+        }
+        
+        .settings-tab-content.active {
+            display: block;
+        }
+        
+        /* 토글 스위치 */
+        .settings-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .settings-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .settings-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .settings-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: 0.3s;
+            border-radius: 30px;
+            border: 2px solid #fff;
+        }
+        
+        .settings-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #fff;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        .settings-toggle input:checked + .settings-toggle-slider {
+            background-color: #4CAF50;
+        }
+        
+        .settings-toggle input:checked + .settings-toggle-slider:before {
+            transform: translateX(30px);
+        }
+        
+        .settings-toggle-label {
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- 메인 로비 화면 -->
+    <div id="lobbyScreen" class="lobby-screen">
+        <div class="lobby-content">
+            <!-- 로고와 스타트 버튼 영역 -->
+            <div id="lobbyStartSection" class="lobby-start-section">
+                <div class="logo-container">
+                    <img src="img/Logo.png" alt="Game Logo" class="logo-image" id="logoImage">
+                </div>
+                <button class="start-button" id="startButton">Start Game</button>
+            </div>
+            
+            <!-- 모드 선택 영역 (처음에는 숨김) -->
+            <div id="lobbyModeSection" class="lobby-mode-section" style="display: none;">
+                <h2 class="lobby-title">게임 모드 선택</h2>
+                <div class="lobby-modes">
+                    <div class="mode-card" id="pvpModeCard">
+                        <div class="mode-icon">⚔️</div>
+                        <h3 class="mode-name">1 vs 1</h3>
+                        <p class="mode-description">두 명의 플레이어가 대전하는 모드입니다. 친구와 함께 실력을 겨뤄보세요.</p>
+                        <button class="lobby-button" id="pvpModeButton">시작하기</button>
+                    </div>
+                    <div class="mode-card" id="aiModeCard">
+                        <div class="mode-icon">🤖</div>
+                        <h3 class="mode-name">vs AI</h3>
+                        <p class="mode-description">인공지능과 대전하는 모드입니다. AI의 도전을 받아보세요.</p>
+                        <button class="lobby-button" id="aiModeButton">시작하기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 게임 화면 -->
+    <div id="gameScreen" class="game-container">
+        <!-- 카운트다운 -->
+        <div id="countdown">
+            <div class="countdown-text" id="countdownText">3</div>
+        </div>
+        
+        <div class="ui-overlay">
+            <div class="health-container">
+                <div class="player-health-wrapper">
+                    <div class="player-name">Player 1</div>
+                    <div class="health-bar-container">
+                        <div class="health-bar-bg"></div>
+                        <div id="playerHealth" class="health-bar player-health-bar" style="width: 100%;"></div>
+                    </div>
+                </div>
+                
+                <div class="timer-container">
+                    <div class="timer-label">Time</div>
+                    <div id="timer" class="timer">60</div>
+                </div>
+                
+                <div class="enemy-health-wrapper">
+                    <div class="player-name">Player 2</div>
+                    <div class="health-bar-container">
+                        <div class="health-bar-bg"></div>
+                        <div id="enemyHealth" class="health-bar enemy-health-bar" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="displayText" class="game-over">
+            <div class="winner-text">Tie</div>
+            <button id="retryButton" class="retry-button">Retry</button>
+        </div>
+        
+        <!-- 일시정지 버튼 -->
+        <button id="pauseButton" class="pause-button" style="display: none;">⏸</button>
+        
+        <!-- 일시정지 메뉴 -->
+        <div id="pauseMenu" class="pause-menu" style="display: none;">
+            <div class="pause-menu-content">
+                <button id="restartFromPauseButton" class="pause-menu-button">다시 시작</button>
+                <button id="settingsButton" class="pause-menu-button">설정</button>
+                <button id="resumeButton" class="pause-menu-button">계속하기</button>
+            </div>
+        </div>
+        
+        <!-- 설정 팝업 -->
+        <div id="settingsPopup" class="settings-popup" style="display: none;">
+            <div class="settings-popup-content">
+                <button id="closeSettingsButton" class="close-settings-button">×</button>
+                <h2 class="settings-title">설정</h2>
+                
+                <!-- 탭 메뉴 -->
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="sound">사운드</button>
+                    <button class="settings-tab" data-tab="display">표시</button>
+                </div>
+                
+                <!-- 사운드 탭 -->
+                <div id="soundTab" class="settings-tab-content active">
+                    <div class="settings-item">
+                        <label for="gameSoundSlider" class="settings-label">게임 사운드</label>
+                        <input type="range" id="gameSoundSlider" class="settings-slider" min="0" max="100" value="50">
+                        <span id="gameSoundValue" class="settings-value">50%</span>
+                    </div>
+                    <div class="settings-item">
+                        <label for="bgMusicSlider" class="settings-label">배경 음악</label>
+                        <input type="range" id="bgMusicSlider" class="settings-slider" min="0" max="100" value="30">
+                        <span id="bgMusicValue" class="settings-value">30%</span>
+                    </div>
+                </div>
+                
+                <!-- 표시 탭 -->
+                <div id="displayTab" class="settings-tab-content">
+                    <div class="settings-item">
+                        <label class="settings-label">히트박스 표시</label>
+                        <div class="settings-toggle-container">
+                            <label class="settings-toggle">
+                                <input type="checkbox" id="hitboxToggle">
+                                <span class="settings-toggle-slider"></span>
+                            </label>
+                            <span id="hitboxToggleLabel" class="settings-toggle-label">끔</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 모바일 컨트롤 버튼 -->
+        <div id="mobileControls" class="mobile-controls">
+            <!-- 왼쪽: 이동 컨트롤 -->
+            <div class="mobile-controls-left">
+                <div class="arrow-buttons">
+                    <button class="mobile-btn mobile-btn-arrow" id="mobileLeft">←</button>
+                    <button class="mobile-btn mobile-btn-arrow mobile-btn-jump" id="mobileJump">↑</button>
+                    <button class="mobile-btn mobile-btn-arrow" id="mobileRight">→</button>
+                </div>
+            </div>
+            
+            <!-- 오른쪽: 공격/대시 버튼 -->
+            <div class="mobile-controls-right">
+                <button class="mobile-btn mobile-btn-action" id="mobileAttack">공격</button>
+                <button class="mobile-btn mobile-btn-action" id="mobileDash">대시</button>
+            </div>
+        </div>
+        
+        <canvas></canvas>
+    </div>
+
+<script src="js/utils.js"></script>
+<script src="js/classes.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
