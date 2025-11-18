@@ -1,0 +1,2309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fighting Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #1a1a1a;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+        
+        .game-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .health-container {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 0 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .player-health-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-top: -40px; /* 체력바만 위로 올리기 (값 조정 가능) */
+        }
+        
+        .enemy-health-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: -40px; /* 체력바만 위로 올리기 (값 조정 가능) */
+        }
+        
+        .player-name {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .health-bar-container {
+            position: relative;
+            width: 100%;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 3px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+        }
+        
+        .health-bar-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #333 0%, #111 100%);
+        }
+        
+        .health-bar {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            transition: width 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+        
+        .player-health-bar {
+            right: 0;
+            background: linear-gradient(90deg, #ff4444 0%, #ff0000 50%, #cc0000 100%);
+            border-left: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .enemy-health-bar {
+            left: 0;
+            background: linear-gradient(90deg, #4444ff 0%, #0000ff 50%, #0000cc 100%);
+            border-right: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .health-bar-low {
+            background: linear-gradient(90deg, #ff8800 0%, #ff4400 50%, #cc0000 100%) !important;
+        }
+        
+        .timer-container {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .timer-label {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .timer {
+            width: 90px; /* 타이머 원 크기 조정 (기본값: 120px) */
+            height: 90px; /* 타이머 원 크기 조정 (기본값: 120px) */
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px; /* 폰트 크기 조정 (기본값: 48px) */
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 2px 5px rgba(255, 255, 255, 0.1);
+        }
+        
+        .timer-warning {
+            color: #ff4444;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            pointer-events: all;
+        }
+        
+        .game-over.show {
+            display: flex;
+        }
+        
+        .winner-text {
+            color: #fff;
+            font-size: 64px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 4px 4px 8px rgba(0, 0, 0, 0.8);
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .retry-button {
+            padding: 15px 50px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            display: none;
+        }
+        
+        .retry-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+            background: linear-gradient(135deg, #5CBF60 0%, #4CAF50 100%);
+        }
+        
+        .retry-button:active {
+            transform: translateY(0);
+        }
+        
+        .retry-button.show {
+            display: block;
+            animation: fadeIn 0.5s ease 0.3s backwards;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        
+        /* 메인 로비 화면 */
+        .lobby-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 90;
+            transition: opacity 0.5s ease;
+            overflow: hidden;
+        }
+        
+        /* GIF 배경 이미지 */
+        .lobby-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('img/lennart-butz-idea5anim4.gif');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 1;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        
+        .lobby-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 50px;
+            position: relative;
+            z-index: 1;
+            padding: 40px;
+        }
+        
+        /* 로비 시작 섹션 (로고 + 스타트 버튼) */
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: -70px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .language-button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .language-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .language-button.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            border-color: #4CAF50;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        
+        .lobby-start-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            animation: fadeIn 0.5s ease;
+            position: relative;
+        }
+        
+        .credits-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'Arial', sans-serif;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+        
+        /* 로비 모드 선택 섹션 */
+        .lobby-mode-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .lobby-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 4px 4px 8px rgba(0, 0, 0, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: fadeIn 0.5s ease;
+            font-family: 'Arial Black', Arial, sans-serif;
+            margin-bottom: 20px;
+        }
+        
+        .lobby-modes {
+            display: flex;
+            gap: 25px;
+            align-items: stretch;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .mode-card {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            padding: 20px 25px;
+            min-width: 220px;
+            max-width: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+            transition: all 0.3s ease;
+            position: relative;
+            animation: cardFadeIn 0.8s ease backwards;
+        }
+        
+        .mode-card:nth-child(1) {
+            animation-delay: 0.2s;
+        }
+        
+        .mode-card:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+        
+        .mode-card:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+        
+        @keyframes cardFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .mode-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8);
+            border-color: #ccc;
+        }
+        
+        .mode-icon {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            height: 90px;
+        }
+        
+        .mode-icon img {
+            height: 100%;
+            width: auto;
+            object-fit: contain;
+        }
+        
+        .mode-icon img.flipped {
+            transform: scaleX(-1);
+        }
+        
+        .mode-icon img.enemy-blue {
+            filter: hue-rotate(240deg) saturate(1.2);
+        }
+        
+        .mode-icon-single {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 90px;
+        }
+        
+        .mode-icon-single img {
+            height: 100%;
+            width: auto;
+            object-fit: contain;
+            transform: scaleX(-1);
+            filter: hue-rotate(240deg) saturate(1.2);
+        }
+        
+        /* 연습 모드 더미 이미지는 변환 없이 표시 */
+        #practiceModeCard .mode-icon-single img {
+            transform: none;
+            filter: none;
+        }
+        
+        .mode-name {
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        
+        .mode-description {
+            font-size: 12px;
+            color: #ccc;
+            text-align: center;
+            line-height: 1.5;
+            margin: 6px 0;
+            flex-grow: 1;
+        }
+        
+        .lobby-button {
+            padding: 14px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            min-width: 180px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .lobby-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4), inset 0 1px 3px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+            border-color: #fff;
+        }
+        
+        .lobby-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 돌아가기 버튼 */
+        .back-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, rgba(40, 40, 50, 0.9) 0%, rgba(20, 20, 30, 0.9) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .back-button:hover {
+            transform: scale(1.1);
+            background: linear-gradient(135deg, rgba(60, 60, 70, 0.95) 0%, rgba(40, 40, 50, 0.95) 100%);
+            border-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3), 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+        
+        .back-button:active {
+            transform: scale(0.95);
+        }
+        
+        .back-icon {
+            font-size: 28px;
+            color: #fff;
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .lobby-mode-section,
+        .character-selection-section {
+            position: relative;
+        }
+        
+        /* 캐릭터 선택 섹션 */
+        .character-selection-section {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+            animation: fadeIn 0.5s ease;
+            margin-top: 0;
+            padding: 20px;
+        }
+        
+        .selection-status {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            margin-top: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .player-select-indicator {
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.95) 0%, rgba(10, 10, 20, 0.95) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            min-width: 120px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .character-info-panel {
+            background: linear-gradient(135deg, rgba(15, 15, 25, 0.95) 0%, rgba(5, 5, 15, 0.95) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 16px 20px;
+            width: 240px;
+            height: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .info-panel-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 4px;
+        }
+        
+        .character-info-panel .confirm-button {
+            margin-top: auto;
+            width: 100%;
+        }
+        
+        .character-info-panel-right {
+            right: var(--info-panel-right-offset, 20px);
+        }
+        
+        .character-info-panel-left {
+            left: var(--info-panel-left-offset, 20px);
+        }
+        
+        .character-info-panel:empty,
+        .character-info-panel .character-info-name:empty {
+            opacity: 0.3;
+        }
+        
+        .character-info-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+        }
+        
+        .character-info-description {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            line-height: 1.6;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 50px;
+            overflow-y: auto;
+        }
+        
+        .character-info-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        
+        .character-info-stats .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            transition: background 0.2s ease;
+        }
+        
+        .character-info-stats .stat-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .character-info-stats .stat-label {
+            color: #aaa;
+        }
+        
+        .character-info-stats .stat-value {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .character-info-stats .stat-value.stat-high {
+            color: #4CAF50;
+        }
+        
+        .character-info-stats .stat-value.stat-low {
+            color: #f44336;
+        }
+        
+        .confirm-button {
+            padding: 8px 20px;
+            font-size: 11px;
+            font-weight: 700;
+            background: linear-gradient(135deg, rgba(40, 40, 50, 0.9) 0%, rgba(20, 20, 30, 0.9) 100%);
+            color: #fff;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .confirm-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .confirm-button:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        
+        .confirm-button:hover:not(:disabled) {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3), 0 0 30px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, rgba(60, 60, 70, 0.95) 0%, rgba(40, 40, 50, 0.95) 100%);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .confirm-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: rgba(100, 100, 100, 0.3);
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.5) 0%, rgba(10, 10, 20, 0.5) 100%);
+        }
+        
+        .confirm-button:not(:disabled):active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .player-select-indicator.completed .confirm-button {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.9) 0%, rgba(56, 142, 60, 0.9) 100%);
+            border-color: #4CAF50;
+            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.6);
+        }
+        
+        .player-select-indicator.active {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.25) 0%, rgba(56, 142, 60, 0.15) 100%);
+            box-shadow: 0 0 30px rgba(76, 175, 80, 0.6), inset 0 0 20px rgba(76, 175, 80, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .player-select-indicator.completed {
+            border-color: #2196F3;
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.25) 0%, rgba(25, 118, 210, 0.15) 100%);
+            box-shadow: 0 0 30px rgba(33, 150, 243, 0.6), inset 0 0 20px rgba(33, 150, 243, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .indicator-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        }
+        
+        .indicator-status {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .player-select-indicator.active .indicator-status {
+            color: #4CAF50;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.8);
+        }
+        
+        .player-select-indicator.completed .indicator-status {
+            color: #2196F3;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(33, 150, 243, 0.8);
+        }
+        
+        .character-selection-wrapper {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            width: 100%;
+            min-height: 280px;
+            margin-bottom: 15px;
+            padding-top: 50px;
+        }
+        
+        .character-selection {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            z-index: 1;
+            flex: 1;
+            max-width: 700px;
+        }
+        
+        .character-card {
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.9) 0%, rgba(10, 10, 20, 0.9) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 12px 16px;
+            width: 140px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            animation: cardFadeIn 0.8s ease backwards;
+            overflow: hidden;
+        }
+        
+        .character-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .character-card:hover::before {
+            opacity: 1;
+        }
+        
+        .character-card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+        
+        .character-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .character-card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+        
+        .character-card:hover {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 12px 32px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            background: linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(20, 20, 30, 0.95) 100%);
+        }
+        
+        .character-card.selected-player1 {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(56, 142, 60, 0.2) 100%);
+            box-shadow: 0 8px 32px rgba(76, 175, 80, 0.6), 0 0 40px rgba(76, 175, 80, 0.4), inset 0 0 20px rgba(76, 175, 80, 0.1);
+            transform: translateY(-4px) scale(1.03);
+        }
+        
+        .character-card.selected-player1::after {
+            content: 'P1';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            padding: 4px 8px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.6);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        
+        .character-card.selected-player2 {
+            border-color: #2196F3;
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.3) 0%, rgba(25, 118, 210, 0.2) 100%);
+            box-shadow: 0 8px 32px rgba(33, 150, 243, 0.6), 0 0 40px rgba(33, 150, 243, 0.4), inset 0 0 20px rgba(33, 150, 243, 0.1);
+            transform: translateY(-4px) scale(1.03);
+        }
+        
+        .character-card.selected-player2::after {
+            content: 'P2';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            padding: 4px 8px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.6);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        
+        .character-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 130px;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .character-card:hover .character-icon {
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .character-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+            transition: transform 0.3s ease;
+        }
+        
+        .character-card:hover .character-icon img {
+            transform: scale(1.1);
+        }
+        
+        .character-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+            padding: 4px 0;
+        }
+        
+        .duel-button {
+            padding: 14px 50px;
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, rgba(200, 50, 50, 0.9) 0%, rgba(150, 30, 30, 0.9) 100%);
+            color: #fff;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            box-shadow: 0 8px 24px rgba(200, 50, 50, 0.5), 0 0 40px rgba(200, 50, 50, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .duel-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s ease;
+        }
+        
+        .duel-button:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        
+        .duel-button:hover:not(:disabled) {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 12px 32px rgba(200, 50, 50, 0.7), 0 0 60px rgba(200, 50, 50, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            background: linear-gradient(135deg, rgba(220, 60, 60, 0.95) 0%, rgba(170, 40, 40, 0.95) 100%);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .duel-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: rgba(100, 100, 100, 0.3);
+            background: linear-gradient(135deg, rgba(50, 50, 50, 0.5) 0%, rgba(30, 30, 30, 0.5) 100%);
+        }
+        
+        .duel-button:not(:disabled):active {
+            transform: translateY(-1px) scale(1.02);
+        }
+        
+        /* 반응형 디자인 */
+        @media (max-width: 900px) {
+            .back-button {
+                width: 45px;
+                height: 45px;
+                top: 15px;
+                right: 15px;
+            }
+            
+            .back-icon {
+                font-size: 24px;
+            }
+            .lobby-modes {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .mode-card {
+                min-width: 200px;
+                max-width: 260px;
+                padding: 18px 20px;
+            }
+            
+            .lobby-title {
+                font-size: 42px;
+            }
+            
+            .character-selection-section {
+                max-width: 100%;
+                padding: 15px;
+                gap: 20px;
+            }
+            
+            .selection-status {
+                flex-direction: column;
+                gap: 15px;
+                max-width: 100%;
+            }
+            
+            .player-select-indicator {
+                min-width: 100px;
+                padding: 10px 16px;
+            }
+            
+            .character-selection {
+                gap: 15px;
+            }
+            
+            .character-card {
+                width: 120px;
+                height: 170px;
+                padding: 10px 12px;
+            }
+            
+            .character-icon {
+                height: 110px;
+            }
+            
+            .character-info-panel {
+                width: 200px;
+                padding: 12px 16px;
+                height: 350px;
+            }
+            
+            .character-info-name {
+                font-size: 14px;
+            }
+            
+            .character-info-description {
+                font-size: 10px;
+            }
+            
+            .character-info-stats .stat-item {
+                font-size: 10px;
+            }
+            
+            .character-selection-wrapper {
+                min-height: 240px;
+                flex-direction: column;
+            }
+            
+            .character-info-panel {
+                position: relative;
+                top: auto;
+                transform: none;
+                width: 170px;
+                margin: 10px 0;
+            }
+            
+            .character-info-panel-right,
+            .character-info-panel-left {
+                right: auto;
+                left: auto;
+            }
+            
+            .duel-button {
+                padding: 12px 40px;
+                font-size: 16px;
+                margin-top: -40px;
+            }
+        }
+        
+        .logo-container {
+            margin-bottom: 40px;
+            animation: logoFadeIn 1s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            background: transparent;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo-image {
+            max-width: 500px;
+            width: 80%;
+            height: auto;
+            display: block;
+            background: transparent;
+            border: none;
+            outline: none;
+            animation: logoPulse 3s infinite;
+            object-fit: contain;
+        }
+        
+        @keyframes logoFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .game-title {
+            font-size: 48px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 2px 2px 6px rgba(0, 0, 0, 0.8);
+            margin-bottom: 50px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            animation: titleFadeIn 1s ease 0.3s backwards;
+        }
+        
+        @keyframes titleFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .start-button {
+            padding: 18px 50px;
+            font-size: 22px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            animation: buttonFadeIn 1s ease 0.6s backwards;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @keyframes buttonFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .start-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4), inset 0 1px 3px rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+            border-color: #fff;
+        }
+        
+        .start-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 게임 화면 */
+        #gameScreen {
+            display: none;
+        }
+        
+        #gameScreen.show {
+            display: block;
+        }
+        
+        /* 카운트다운 */
+        #countdown {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            pointer-events: none;
+        }
+        
+        #countdown.show {
+            display: flex;
+        }
+        
+        .countdown-text {
+            font-size: 120px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8), 4px 4px 12px rgba(0, 0, 0, 0.9);
+            animation: countdownPulse 0.5s ease;
+        }
+        
+        @keyframes countdownPulse {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* 모바일 컨트롤 버튼 */
+        .mobile-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            display: none; /* 기본적으로 숨김 */
+            justify-content: space-between;
+            padding: 25px;
+            z-index: 50;
+            pointer-events: all;
+        }
+        
+        .mobile-controls-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .mobile-controls-right {
+            display: flex;
+            flex-direction: row;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .arrow-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 15px;
+            width: 240px;
+            height: 160px;
+        }
+        
+        .mobile-btn {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.2);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .mobile-btn:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.3);
+        }
+        
+        .mobile-btn-arrow {
+            width: 70px;
+            height: 70px;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mobile-btn-jump {
+            grid-column: 2;
+            grid-row: 1;
+        }
+        
+        #mobileLeft {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        
+        #mobileRight {
+            grid-column: 3;
+            grid-row: 2;
+        }
+        
+        .mobile-btn-action {
+            width: 100px;
+            height: 100px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* 공격 버튼을 더 크게 */
+        #mobileAttack {
+            width: 120px;
+            height: 120px;
+            font-size: 24px;
+        }
+        
+        /* 모바일에서만 표시 */
+        @media (max-width: 768px) {
+            .mobile-controls.show {
+                display: flex !important;
+            }
+            
+            /* 게임 화면이 표시될 때 모바일 컨트롤도 표시 */
+            #gameScreen.show #mobileControls {
+                display: flex !important;
+                visibility: visible !important;
+            }
+        }
+        
+        /* 데스크톱에서는 항상 숨김 */
+        @media (min-width: 769px) {
+            .mobile-controls {
+                display: none !important;
+            }
+        }
+        
+        /* 일시정지 버튼 */
+        .pause-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            pointer-events: all;
+        }
+        
+        .pause-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+        
+        /* 일시정지 메뉴 */
+        .pause-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            pointer-events: all;
+        }
+        
+        .pause-menu-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .pause-menu-button {
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            color: #fff;
+            border: 3px solid #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .pause-menu-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4);
+            background: linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%);
+        }
+        
+        .pause-menu-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 설정 팝업 */
+        .settings-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 400;
+            pointer-events: all;
+        }
+        
+        .settings-popup-content {
+            position: relative;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 3px solid #fff;
+            border-radius: 15px;
+            padding: 40px 60px;
+            min-width: 400px;
+            max-width: 500px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+        }
+        
+        .close-settings-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+        
+        .close-settings-button:hover {
+            background: rgba(255, 0, 0, 1);
+            transform: scale(1.1);
+        }
+        
+        .settings-title {
+            color: #fff;
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .settings-item {
+            margin-bottom: 30px;
+        }
+        
+        .settings-label {
+            display: block;
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .settings-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #333;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .settings-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: 2px solid #333;
+        }
+        
+        .settings-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: 2px solid #333;
+        }
+        
+        .settings-value {
+            display: block;
+            color: #fff;
+            font-size: 16px;
+            text-align: right;
+            margin-top: 5px;
+        }
+        
+        /* 설정 탭 */
+        .settings-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #555;
+        }
+        
+        .settings-tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #aaa;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .settings-tab:hover {
+            color: #fff;
+        }
+        
+        .settings-tab.active {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+        
+        .settings-tab-content {
+            display: none;
+        }
+        
+        .settings-tab-content.active {
+            display: block;
+        }
+        
+        /* 토글 스위치 */
+        .settings-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .settings-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .settings-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .settings-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: 0.3s;
+            border-radius: 30px;
+            border: 2px solid #fff;
+        }
+        
+        .settings-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #fff;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        .settings-toggle input:checked + .settings-toggle-slider {
+            background-color: #4CAF50;
+        }
+        
+        .settings-toggle input:checked + .settings-toggle-slider:before {
+            transform: translateX(30px);
+        }
+        
+        .settings-toggle-label {
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        /* 연습 모드 세부 설정 */
+        .practice-settings {
+            position: fixed;
+            top: 50%;
+            left: calc(50% - 532px); /* 게임 화면(1024px) 왼쪽 끝 - 20px 여유 공간 */
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.95) 0%, rgba(10, 10, 20, 0.95) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            width: 250px;
+            z-index: 15;
+            pointer-events: all;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+        
+        @media (max-width: 1600px) {
+            .practice-settings {
+                left: 20px;
+            }
+        }
+        
+        .practice-settings-title {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .practice-setting-item {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            gap: 8px;
+        }
+        
+        .practice-setting-item label {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .practice-setting-item input[type="text"],
+        .practice-setting-item input[type="number"] {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .practice-setting-item input[type="text"]:focus,
+        .practice-setting-item input[type="number"]:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+        
+        .practice-setting-item input[type="text"]::placeholder,
+        .practice-setting-item input[type="number"]::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .practice-reset-button {
+            width: 100%;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, rgba(255, 100, 100, 0.8) 0%, rgba(200, 50, 50, 0.8) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        .practice-reset-button:hover {
+            background: linear-gradient(135deg, rgba(255, 120, 120, 1) 0%, rgba(220, 70, 70, 1) 100%);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 100, 100, 0.4);
+        }
+        
+        .practice-reset-button:active {
+            transform: translateY(0);
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #4CAF50;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        /* 조작키 설명 */
+        .controls-guide {
+            position: fixed;
+            bottom: 50%;
+            left: calc(50% + 532px); /* 게임 화면(1024px) 오른쪽 끝 + 20px 여유 공간 */
+            transform: translateY(50%);
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.95) 0%, rgba(10, 10, 20, 0.95) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            width: 200px;
+            z-index: 15;
+            pointer-events: none;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+        
+        @media (max-width: 1600px) {
+            .controls-guide {
+                left: auto;
+                right: 20px;
+            }
+        }
+        
+        .controls-guide-title {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .controls-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .control-item .key {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-weight: bold;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .timer-infinite {
+            font-size: 48px;
+            transform: rotate(-90deg);
+        }
+        
+        /* 조작 방법 버튼 */
+        .controls-button {
+            padding: 12px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            background: linear-gradient(135deg, rgba(100, 100, 255, 0.8) 0%, rgba(70, 70, 200, 0.8) 100%);
+            color: #fff;
+            border: 3px solid rgba(255, 255, 255, 0.6);
+            border-radius: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .controls-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(100, 100, 255, 0.6);
+            background: linear-gradient(135deg, rgba(120, 120, 255, 1) 0%, rgba(90, 90, 220, 1) 100%);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .controls-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* 조작 방법 팝업 */
+        .controls-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            pointer-events: all;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .controls-popup.active {
+            display: flex;
+        }
+        
+        .controls-popup-content {
+            position: relative;
+            background: linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(10, 10, 20, 0.98) 100%);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 15px;
+            padding: 40px 50px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
+        }
+        
+        .controls-popup-title {
+            color: #fff;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .controls-popup-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .controls-popup-item {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            color: #fff;
+            font-size: 18px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .controls-popup-item .description {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .controls-popup-item .keys-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .controls-popup-item .key-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: normal;
+        }
+        
+        .controls-popup-item .key {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(200, 200, 200, 0.3) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: center;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .controls-popup-item .key-separator {
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: bold;
+            margin: 0 4px;
+        }
+        
+        .close-controls-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+        
+        .close-controls-button:hover {
+            background: rgba(255, 0, 0, 1);
+            transform: scale(1.1);
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- 메인 로비 화면 -->
+    <div id="lobbyScreen" class="lobby-screen">
+        <div class="lobby-content">
+            <!-- 로고와 스타트 버튼 영역 -->
+            <div id="lobbyStartSection" class="lobby-start-section">
+                <!-- 언어 설정 -->
+                <div class="language-selector">
+                    <button class="language-button" id="langKo" data-lang="ko">한국어</button>
+                    <button class="language-button active" id="langEn" data-lang="en">English</button>
+                </div>
+        <div class="logo-container">
+            <img src="img/Logo.png" alt="Game Logo" class="logo-image" id="logoImage">
+        </div>
+        <button class="start-button" id="startButton">Start Game</button>
+                <button class="controls-button" id="controlsButton">조작 방법</button>
+                <!-- 제작자 표시 -->
+                <div class="credits-text">Made by Ju yejoon</div>
+            </div>
+            
+            <!-- 모드 선택 영역 (처음에는 숨김) -->
+            <div id="lobbyModeSection" class="lobby-mode-section" style="display: none;">
+                <button class="back-button" id="backToStartButton">
+                    <span class="back-icon">←</span>
+                </button>
+                <h2 class="lobby-title">Select Game Mode</h2>
+                <div class="lobby-modes">
+                    <div class="mode-card" id="practiceModeCard">
+                        <div class="mode-icon-single">
+                            <img src="img/dummy/Sprite Sheet 1 - Idle.png" alt="Practice">
+                        </div>
+                        <h3 class="mode-name">Practice</h3>
+                        <p class="mode-description">Learn the basics. Practice your moves against a training dummy.</p>
+                        <button class="lobby-button" id="practiceModeButton">Start</button>
+                    </div>
+                    <div class="mode-card" id="pvpModeCard">
+                        <div class="mode-icon">
+                            <img src="img/player 1/main.png" alt="Player 1">
+                            <img src="img/player 1/main.png" alt="Player 2" class="flipped enemy-blue">
+                        </div>
+                        <h3 class="mode-name">1 vs 1</h3>
+                        <p class="mode-description">Battle against another player. Test your skills with a friend.</p>
+                        <button class="lobby-button" id="pvpModeButton">Start</button>
+                    </div>
+                    <div class="mode-card" id="aiModeCard">
+                        <div class="mode-icon-single">
+                            <img src="img/player 1/main.png" alt="AI Enemy">
+                        </div>
+                        <h3 class="mode-name">vs AI</h3>
+                        <p class="mode-description">Battle against artificial intelligence. Accept the AI's challenge.</p>
+                        <button class="lobby-button" id="aiModeButton">Start</button>
+                    </div>
+                    <div class="mode-card" id="bossModeCard">
+                        <div class="mode-icon-single">
+                            <img src="img/boss/boss main.png" alt="Boss Enemy">
+                        </div>
+                        <h3 class="mode-name">Boss Mode</h3>
+                        <p class="mode-description">Face the ultimate challenge. The boss has double damage, faster speed, and superior AI.</p>
+                        <button class="lobby-button" id="bossModeButton">Start</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 캐릭터 선택 영역 (처음에는 숨김) -->
+            <div id="characterSelectionSection" class="character-selection-section" style="display: none;">
+                <button class="back-button" id="backToModeButton">
+                    <span class="back-icon">←</span>
+                </button>
+                <h2 class="lobby-title">Select Characters</h2>
+                
+                <!-- 캐릭터 선택 영역 -->
+                <div class="character-selection-wrapper">
+                    <!-- 플레이어 1 정보 패널 (좌측) -->
+                    <div class="character-info-panel character-info-panel-left" id="player1InfoPanel">
+                        <div class="info-panel-header">Player 1</div>
+                        <div class="character-info-name" id="player1InfoName"></div>
+                        <div class="character-info-description" id="player1InfoDescription"></div>
+                        <div class="character-info-stats" id="player1InfoStats"></div>
+                        <button class="confirm-button" id="player1ConfirmButton" disabled>Confirm</button>
+                    </div>
+                    
+                    <!-- 캐릭터 선택 영역 -->
+                    <div class="character-selection">
+                        <div class="character-card" data-character="1" data-color="default">
+                            <div class="character-icon">
+                                <img src="img/player 1/main.png" alt="Character 1">
+                            </div>
+                            <div class="character-name">Ronan</div>
+                        </div>
+                        <div class="character-card" data-character="2" data-color="default">
+                            <div class="character-icon">
+                                <img src="img/player 2/shogun main.png" alt="Shogun">
+                            </div>
+                            <div class="character-name">Shogun</div>
+                        </div>
+                        <div class="character-card" data-character="3" data-color="default">
+                            <div class="character-icon">
+                                <img src="img/player 3/chan main.png" alt="Chan">
+                            </div>
+                            <div class="character-name">Chan</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 플레이어 2 정보 패널 (우측) -->
+                    <div class="character-info-panel character-info-panel-right" id="player2InfoPanel">
+                        <div class="info-panel-header">Player 2</div>
+                        <div class="character-info-name" id="player2InfoName"></div>
+                        <div class="character-info-description" id="player2InfoDescription"></div>
+                        <div class="character-info-stats" id="player2InfoStats"></div>
+                        <button class="confirm-button" id="player2ConfirmButton" disabled>Confirm</button>
+                    </div>
+                </div>
+                
+                <!-- Duel 버튼 -->
+                <button class="duel-button" id="duelButton" disabled>Duel!</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 게임 화면 -->
+    <div id="gameScreen" class="game-container">
+        <!-- 카운트다운 -->
+        <div id="countdown">
+            <div class="countdown-text" id="countdownText">3</div>
+        </div>
+        
+        <div class="ui-overlay">
+            <div class="health-container">
+                <div class="player-health-wrapper">
+                    <div class="player-name">Player 1</div>
+                    <div class="health-bar-container">
+                        <div class="health-bar-bg"></div>
+                        <div id="playerHealth" class="health-bar player-health-bar" style="width: 100%;"></div>
+                    </div>
+                </div>
+                
+                <div class="timer-container">
+                    <div class="timer-label">Time</div>
+                    <div id="timer" class="timer">60</div>
+                </div>
+                
+                <div class="enemy-health-wrapper">
+                    <div class="player-name">Player 2</div>
+                    <div class="health-bar-container">
+                        <div class="health-bar-bg"></div>
+                        <div id="enemyHealth" class="health-bar enemy-health-bar" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="displayText" class="game-over">
+            <div class="winner-text">Tie</div>
+            <button id="retryButton" class="retry-button">Retry</button>
+        </div>
+        
+        <!-- 일시정지 버튼 -->
+        <button id="pauseButton" class="pause-button" style="display: none;">⏸</button>
+        
+        <!-- 일시정지 메뉴 -->
+        <div id="pauseMenu" class="pause-menu" style="display: none;">
+            <div class="pause-menu-content">
+                <button id="restartFromPauseButton" class="pause-menu-button">Restart</button>
+                <button id="settingsButton" class="pause-menu-button">Settings</button>
+                <button id="resumeButton" class="pause-menu-button">Continue</button>
+            </div>
+        </div>
+        
+        <!-- 설정 팝업 -->
+        <div id="settingsPopup" class="settings-popup" style="display: none;">
+            <div class="settings-popup-content">
+                <button id="closeSettingsButton" class="close-settings-button">×</button>
+                <h2 class="settings-title">Settings</h2>
+                
+                <!-- 탭 메뉴 -->
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="sound">Sound</button>
+                    <button class="settings-tab" data-tab="display">Display</button>
+                </div>
+                
+                <!-- 사운드 탭 -->
+                <div id="soundTab" class="settings-tab-content active">
+                    <div class="settings-item">
+                        <label for="gameSoundSlider" class="settings-label">Game Sound</label>
+                        <input type="range" id="gameSoundSlider" class="settings-slider" min="0" max="100" value="50">
+                        <span id="gameSoundValue" class="settings-value">50%</span>
+                    </div>
+                    <div class="settings-item">
+                        <label for="bgMusicSlider" class="settings-label">Background Music</label>
+                        <input type="range" id="bgMusicSlider" class="settings-slider" min="0" max="100" value="30">
+                        <span id="bgMusicValue" class="settings-value">30%</span>
+                    </div>
+                </div>
+                
+                <!-- 표시 탭 -->
+                <div id="displayTab" class="settings-tab-content">
+                    <div class="settings-item">
+                        <label class="settings-label">Show Hitbox</label>
+                        <div class="settings-toggle-container">
+                            <label class="settings-toggle">
+                                <input type="checkbox" id="hitboxToggle">
+                                <span class="settings-toggle-slider"></span>
+                            </label>
+                            <span id="hitboxToggleLabel" class="settings-toggle-label">Off</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 모바일 컨트롤 버튼 -->
+        <div id="mobileControls" class="mobile-controls">
+            <!-- 왼쪽: 이동 컨트롤 -->
+            <div class="mobile-controls-left">
+                <div class="arrow-buttons">
+                    <button class="mobile-btn mobile-btn-arrow" id="mobileLeft">←</button>
+                    <button class="mobile-btn mobile-btn-arrow mobile-btn-jump" id="mobileJump">↑</button>
+                    <button class="mobile-btn mobile-btn-arrow" id="mobileRight">→</button>
+                </div>
+            </div>
+            
+            <!-- 오른쪽: 공격/대시 버튼 -->
+            <div class="mobile-controls-right">
+                <button class="mobile-btn mobile-btn-action" id="mobileAttack">Attack</button>
+                <button class="mobile-btn mobile-btn-action" id="mobileDash">Dash</button>
+            </div>
+        </div>
+        
+        <canvas></canvas>
+    </div>
+    
+    <!-- 연습 모드 세부 설정 (게임 화면 밖) -->
+    <div id="practiceSettings" class="practice-settings" style="display: none;">
+        <h3 class="practice-settings-title">Practice Settings</h3>
+        <div class="practice-setting-item">
+            <label>Dummy Health:</label>
+            <input type="number" id="dummyHealthInput" min="50" max="500" value="200" step="10" placeholder="200">
+        </div>
+        <div class="practice-setting-item">
+            <label>Player Damage:</label>
+            <input type="number" id="playerDamageInput" min="10" max="100" value="20" step="10" placeholder="20">
+        </div>
+        <div class="practice-setting-item">
+            <label>Dummy Movement:</label>
+            <label class="toggle-switch">
+                <input type="checkbox" id="dummyMovementToggle">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="practice-setting-item">
+            <button id="resetDummyPositionButton" class="practice-reset-button">Reset Dummy Position</button>
+        </div>
+    </div>
+    
+    <!-- 조작키 설명 (게임 화면 밖) -->
+    <div id="controlsGuide" class="controls-guide" style="display: none;">
+        <h3 class="controls-guide-title">Controls</h3>
+        <div class="controls-list">
+            <div class="control-item"><span class="key">A/D</span> - Move</div>
+            <div class="control-item"><span class="key">W</span> - Jump</div>
+            <div class="control-item"><span class="key">Space</span> - Attack</div>
+            <div class="control-item"><span class="key">E</span> - Dash</div>
+        </div>
+    </div>
+    
+    <!-- 조작 방법 팝업 -->
+    <div id="controlsPopup" class="controls-popup">
+        <div class="controls-popup-content">
+            <button class="close-controls-button" id="closeControlsButton">×</button>
+            <h2 class="controls-popup-title">조작 방법</h2>
+            <div class="controls-popup-list">
+                <div class="controls-popup-item">
+                    <span class="description">좌우 이동</span>
+                    <div class="keys-group">
+                        <span class="key-label">플레이어 1</span>
+                        <span class="key">A / D</span>
+                        <span class="key-separator">|</span>
+                        <span class="key-label">플레이어 2</span>
+                        <span class="key">← / →</span>
+                    </div>
+                </div>
+                <div class="controls-popup-item">
+                    <span class="description">점프</span>
+                    <div class="keys-group">
+                        <span class="key-label">플레이어 1</span>
+                        <span class="key">W</span>
+                        <span class="key-separator">|</span>
+                        <span class="key-label">플레이어 2</span>
+                        <span class="key">↑</span>
+                    </div>
+                </div>
+                <div class="controls-popup-item">
+                    <span class="description">공격</span>
+                    <div class="keys-group">
+                        <span class="key-label">플레이어 1</span>
+                        <span class="key">Space</span>
+                        <span class="key-separator">|</span>
+                        <span class="key-label">플레이어 2</span>
+                        <span class="key">Enter</span>
+                    </div>
+                </div>
+                <div class="controls-popup-item">
+                    <span class="description">대시 (돌진)</span>
+                    <div class="keys-group">
+                        <span class="key-label">플레이어 1</span>
+                        <span class="key">E</span>
+                        <span class="key-separator">|</span>
+                        <span class="key-label">플레이어 2</span>
+                        <span class="key">Shift</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="js/utils.js"></script>
+<script src="js/classes.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
